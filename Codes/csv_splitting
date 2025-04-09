@@ -1,1 +1,31 @@
-hi
+import pandas as pd
+import os
+from tqdm import tqdm
+
+# Step 1: File and output directory setup
+file_path =  r'E:\malware2025\Feb_feature_benign_malware_note.csv'  # 🔁 Replace with your actual file path
+output_dir =  r'E:\malware2025\output2'
+os.makedirs(output_dir, exist_ok=True)
+print("✅ Step 1: Output directory created (if not exists)")
+
+# Step 2: Load the CSV file
+print("📥 Step 2: Reading the large CSV file...")
+df = pd.read_csv(file_path)
+print(f"✅ Loaded CSV with {len(df)} rows and {len(df.columns)} columns")
+
+# Step 3: Calculate chunk size
+total_rows = len(df)
+num_splits = 10  # 🔁 Number of parts to split into
+chunk_size = total_rows // num_splits
+print(f"✅ Step 3: Each chunk will have ~{chunk_size} rows")
+
+# Step 4: Split and save with progress bar
+print("✂️ Step 4: Splitting the file and saving to disk...")
+for i in tqdm(range(num_splits), desc="Splitting Progress"):
+    start = i * chunk_size
+    end = (i + 1) * chunk_size if i < num_splits - 1 else total_rows  # Last chunk gets remainder
+    chunk_df = df.iloc[start:end]
+    chunk_file_path = os.path.join(output_dir, f'split_part_{i+1}.csv')
+    chunk_df.to_csv(chunk_file_path, index=False)
+
+print("✅ Step 5: Splitting complete! All 10 files saved in 'split_csvs' folder.")
