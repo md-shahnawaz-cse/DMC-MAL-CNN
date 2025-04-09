@@ -1,0 +1,39 @@
+import pandas as pd
+import os
+from tqdm import tqdm
+import json
+
+# Step 1: File and output directory setup
+csv_file_path = r'H:\2025_Malware\output2'  # ✅ Cleaned path
+json_output_dir = r'H:\2025_Malware\json_output'
+os.makedirs(json_output_dir, exist_ok=True)
+print("✅ Step 1: Output directory created (if not exists)")
+
+# Step 2: Get list of CSV files to convert
+csv_files = [f for f in os.listdir(csv_file_path) if f.endswith('.csv')]
+print(f"✅ Step 2: Found {len(csv_files)} CSV files to convert.")
+
+# Step 3: Convert each CSV file to JSON
+print("📥 Step 3: Converting CSV to JSON...")
+
+chunk_size = 1000  # Number of rows per chunk to process
+
+for csv_file in tqdm(csv_files, desc="CSV to JSON Progress"):
+    # Construct full file path
+    csv_file_path_full = os.path.join(csv_file_path, csv_file)
+    
+    # Create the JSON file for this CSV
+    json_file_name = csv_file.replace('.csv', '.json')
+    json_file_path = os.path.join(json_output_dir, json_file_name)
+    
+    # Open the JSON file to write data
+    with open(json_file_path, 'w') as json_file:
+        # Process the CSV in chunks
+        for chunk in pd.read_csv(csv_file_path_full, chunksize=chunk_size):
+            # Convert each chunk to JSON and write to the file
+            chunk.to_json(json_file, orient='records', lines=True, date_format='iso')
+            json_file.write('\n')  # Newline between chunks
+
+    print(f"✅ Successfully converted {csv_file} to JSON format and saved at {json_file_path}")
+
+print("✅ Step 4: Conversion complete! All JSON files saved in the 'json_output' folder.")
