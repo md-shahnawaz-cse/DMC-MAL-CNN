@@ -1,0 +1,33 @@
+import json
+import os
+
+input_path = r'H:\2025_Malware\all_10_json_output\split_part_1.json'
+output_dir = r'H:\2025_Malware\json_objects\json_object_1'
+
+# Create the output directory if it doesn't exist
+os.makedirs(output_dir, exist_ok=True)
+
+# Read and save each JSON object using 'family' and 'hash' as filename
+with open(input_path, 'r', encoding='utf-8') as infile:
+    for index, line in enumerate(infile):
+        try:
+            data = json.loads(line)
+            if 'hash' in data and 'family' in data:
+                hash_name = data['hash']
+                family_name = data['family']
+
+                # Sanitize filename
+                safe_hash = "".join(c for c in hash_name if c.isalnum() or c in ('-', '_'))
+                safe_family = "".join(c for c in family_name if c.isalnum() or c in ('-', '_'))
+                
+                filename = f"{safe_family}_{safe_hash}.json"
+                output_file = os.path.join(output_dir, filename)
+
+                with open(output_file, 'w', encoding='utf-8') as outfile:
+                    json.dump(data, outfile, indent=4)
+
+                if index % 100 == 0:
+                    print(f"✅ Saved {index+1} objects...")  # Progress log
+
+        except json.JSONDecodeError:
+            continue  # Skip bad lines
