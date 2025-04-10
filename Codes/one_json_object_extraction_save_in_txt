@@ -1,0 +1,16 @@
+import json
+
+input_path = r'H:\2025_Malware\split_part_3.json'
+output_path = r'H:\2025_Malware\one_json_object.txt'
+
+with open(input_path, 'r', encoding='utf-8') as infile:
+    for line in infile:
+        try:
+            data = json.loads(line)
+            if 'hash' in data:
+                with open(output_path, 'w', encoding='utf-8') as outfile:
+                    json.dump(data, outfile, indent=4)
+                print(f"✅ JSON object saved to: {output_path}")
+                break
+        except json.JSONDecodeError:
+            continue
