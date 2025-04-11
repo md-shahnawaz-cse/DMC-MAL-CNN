@@ -1,0 +1,74 @@
+import numpy as np
+import json
+import os
+from PIL import Image, ImageEnhance
+
+# Function to load and process the JSON object to generate the image
+def generate_image_from_json(input_file_path, output_folder_path):
+    # Load the JSON data from the input file
+    with open(input_file_path, 'r') as f:
+        json_data = json.load(f)
+
+    # Extract the numerical features from the JSON
+    # Convert all features to float and filter out non-numeric ones
+    features = [float(f) for f in json_data.values() if isinstance(f, (int, float, str)) and str(f).replace('.', '', 1).isdigit()]
+
+    if len(features) == 0:
+        print(f"No valid numeric features in {input_file_path}")
+        return
+
+    # Normalize the features to the range [0, 255] for grayscale
+    min_val = min(features)
+    max_val = max(features)
+
+    # Apply a smoother contrast mapping to prevent full black or white
+    normalized_features = [(f - min_val) / (max_val - min_val) * 255 for f in features]
+
+    # Convert list to numpy array for further processing
+    normalized_features = np.array(normalized_features)
+
+    # Apply histogram equalization to spread pixel values more evenly
+    # Normalize between 0 and 255 for better contrast
+    hist_eq_features = np.interp(normalized_features, (normalized_features.min(), normalized_features.max()), (0, 255))
+
+    # Find the nearest square dimension for reshaping
+    total_elements = len(hist_eq_features)
+    side_length = int(np.ceil(np.sqrt(total_elements)))  # The next larger square root
+
+    # If the number of elements doesn't form a perfect square, pad the array with zeros
+    padded_features = list(hist_eq_features) + [0] * (side_length * side_length - total_elements)
+    
+    # Reshape the padded array into a square image
+    reshaped_features = np.array(padded_features).reshape((side_length, side_length))
+
+    # Convert the reshaped features into an image
+    image = Image.fromarray(reshaped_features.astype(np.uint8))
+
+    # Enhance the contrast to improve visual distinction
+    enhancer = ImageEnhance.Contrast(image)
+    image = enhancer.enhance(2.0)  # You can adjust this factor as needed (e.g., 2.0 for strong contrast)
+
+    # Ensure the output folder exists, if not create it
+    if not os.path.exists(output_folder_path):
+        os.makedirs(output_folder_path)
+
+    # Define the output image file path
+    output_image_path = os.path.join(output_folder_path, os.path.basename(input_file_path).replace('.json', '_image.png'))
+
+    # Save the image to the specified output folder
+    image.save(output_image_path)
+
+    # Show the image (optional)
+    image.show()
+
+    print(f"Image saved to {output_image_path}")
+
+# Example Usage
+input_folder_path = r'H:\2025_Malware\sample_json_object1'  # Folder containing your JSON files
+output_folder_path = r'H:\2025_Malware\sample_json_object1\output_images'  # Folder to save the generated images
+
+# Loop through all JSON files in the input folder
+for filename in os.listdir(input_folder_path):
+    if filename.endswith('.json'):
+        input_file_path = os.path.join(input_folder_path, filename)
+        generate_image_from_json(input_file_path, output_folder_path)
