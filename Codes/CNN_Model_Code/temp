@@ -1,1 +1,183 @@
-d
+import os
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from tensorflow.keras import layers, models
+from tensorflow.keras.preprocessing.image import ImageDataGenerator, load_img, img_to_array
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import LabelEncoder
+import json
+import datetime
+
+# Constants
+IMAGE_SIZE = (128, 128)
+BATCH_SIZE = 32
+EPOCHS = 30
+NUM_CLASSES = 8  # adware, backdoor, benign, downloader, spyware, trojan, virus, worms
+
+# Paths
+data_dir = 'H:/2025_Malware/training_data'
+results_dir = 'H:/2025_Malware/results'
+os.makedirs(results_dir, exist_ok=True)
+
+# Class names
+class_names = ['adware', 'backdoor', 'benign', 'downloader', 'spyware', 'trojan', 'virus', 'worms']
+
+# Modified dataset loading to track filenames
+def load_dataset_with_filenames(folder_path):
+    images = []
+    labels = []
+    filenames = []
+    
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.png'):
+            class_name = filename.split('_')[0].lower()
+            if class_name in class_names:
+                img_path = os.path.join(folder_path, filename)
+                img = load_img(img_path, color_mode='grayscale', target_size=IMAGE_SIZE)
+                img_array = img_to_array(img) / 255.0
+                
+                images.append(img_array)
+                labels.append(class_name)
+                filenames.append(filename)
+    
+    return np.array(images), np.array(labels), np.array(filenames)
+
+# Load dataset with filenames
+print("Loading dataset with filenames...")
+X, y, filenames = load_dataset_with_filenames(data_dir)
+print(f"Loaded {len(X)} images")
+
+# Encode labels
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(y)
+y_categorical = tf.keras.utils.to_categorical(y_encoded, num_classes=NUM_CLASSES)
+
+# Split data while preserving filename alignment
+X_train, X_val, y_train, y_val, filenames_train, filenames_val = train_test_split(
+    X, y_categorical, filenames, test_size=0.2, random_state=42, stratify=y_encoded
+)
+
+# Data augmentation
+train_datagen = ImageDataGenerator(
+    rotation_range=20,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True,
+    fill_mode='nearest'
+)
+
+# Create generators with shuffle=False for validation to maintain order
+train_generator = train_datagen.flow(
+    X_train, y_train, batch_size=BATCH_SIZE, shuffle=True
+)
+
+val_generator = ImageDataGenerator().flow(
+    X_val, y_val, batch_size=BATCH_SIZE, shuffle=False
+)
+
+# Build CNN model
+model = models.Sequential([
+    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(IMAGE_SIZE[0], IMAGE_SIZE[1], 1)),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(64, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(128, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Flatten(),
+    layers.Dense(256, activation='relu'),
+    layers.Dropout(0.5),
+    layers.Dense(NUM_CLASSES, activation='softmax')
+])
+
+model.compile(optimizer='adam',
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+
+# Train model
+print("Training model...")
+history = model.fit(
+    train_generator,
+    steps_per_epoch=len(X_train) // BATCH_SIZE,
+    epochs=EPOCHS,
+    validation_data=val_generator,
+    validation_steps=len(X_val) // BATCH_SIZE
+)
+
+# Create results directory with timestamp
+timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+model_dir = os.path.join(results_dir, f"model_{timestamp}")
+os.makedirs(model_dir, exist_ok=True)
+
+# Save model and artifacts
+model.save(os.path.join(model_dir, 'malware_classifier.keras'))
+np.save(os.path.join(model_dir, 'label_encoder.npy'), label_encoder.classes_)
+
+# Generate predictions for validation set
+print("Generating predictions...")
+val_generator = ImageDataGenerator().flow(X_val, y_val, batch_size=BATCH_SIZE, shuffle=False)
+y_pred = model.predict(val_generator)
+predicted_classes = label_encoder.inverse_transform(np.argmax(y_pred, axis=1))
+true_classes = label_encoder.inverse_transform(np.argmax(y_val, axis=1))
+
+# Create and save predictions CSV
+predictions_df = pd.DataFrame({
+    'image_name': filenames_val,
+    'actual_class': true_classes,
+    'predicted_class': predicted_classes
+})
+
+csv_path = os.path.join(model_dir, 'predictions.csv')
+predictions_df.to_csv(csv_path, index=False)
+print(f"Predictions saved to {csv_path}")
+
+# Save additional training artifacts
+def save_training_artifacts():
+    # Training history
+    with open(os.path.join(model_dir, 'training_history.json'), 'w') as f:
+        json.dump(history.history, f)
+    
+    # Model summary
+    with open(os.path.join(model_dir, 'model_summary.txt'), 'w') as f:
+        model.summary(print_fn=lambda x: f.write(x + '\n'))
+    
+    # Metrics
+    val_loss, val_acc = model.evaluate(val_generator, verbose=0)
+    metrics = {
+        'validation_accuracy': float(val_acc),
+        'validation_loss': float(val_loss),
+        'training_accuracy': float(history.history['accuracy'][-1]),
+        'training_loss': float(history.history['loss'][-1])
+    }
+    with open(os.path.join(model_dir, 'metrics.json'), 'w') as f:
+        json.dump(metrics, f, indent=4)
+    
+    # Training plots
+    plt.figure(figsize=(12, 4))
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['accuracy'], label='Train Accuracy')
+    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+    plt.title('Model Accuracy')
+    plt.ylabel('Accuracy')
+    plt.xlabel('Epoch')
+    plt.legend()
+    
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['loss'], label='Train Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.title('Model Loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend()
+    
+    plt.savefig(os.path.join(model_dir, 'training_plots.png'))
+    plt.close()
+
+save_training_artifacts()
+
+print(f"\nAll results saved to: {model_dir}")
+print("Sample predictions:")
+print(predictions_df.head())
