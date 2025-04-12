@@ -1,0 +1,132 @@
+import pandas as pd
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
+import matplotlib.pyplot as plt
+import os
+
+# Load the CSV file
+input_path = r'H:\2025_Malware\results\model_20250412_171439\predictions.csv'
+df = pd.read_csv(input_path)
+
+# Extract actual and predicted classes
+actual = df['actual_class']
+predicted = df['predicted_class']
+
+# Generate confusion matrix
+cm = confusion_matrix(actual, predicted)
+
+# Classification report for performance metrics (output_dict=True for detailed metrics)
+report = classification_report(actual, predicted, output_dict=True)
+
+# Define malware labels for the plot and table
+labels = sorted(df['actual_class'].unique())
+
+# Create the directory for confusion matrix results if it doesn't exist
+output_folder = os.path.join(os.path.dirname(input_path), 'confusion_matrix')
+os.makedirs(output_folder, exist_ok=True)
+
+# Prepare the classification results for each malware type (Accuracy, F1 Score, Recall, Precision)
+classification_results = []
+
+# Prepare a separate list for True Positive, True Negative, False Positive, and False Negative
+metrics_results = []
+
+for label in labels:
+    # Extract metrics for each label
+    precision = report[label]['precision'] * 100
+    recall = report[label]['recall'] * 100
+    f1_score = report[label]['f1-score'] * 100
+    
+    # Calculate TP, TN, FP, FN for each class from the confusion matrix
+    true_positive = cm[labels.index(label), labels.index(label)]  # True Positive for this class
+    false_positive = cm[:, labels.index(label)].sum() - true_positive  # False Positive for this class
+    false_negative = cm[labels.index(label), :].sum() - true_positive  # False Negative for this class
+    true_negative = cm.sum() - (true_positive + false_positive + false_negative)  # True Negative for this class
+    
+    # Calculate accuracy for each class using the confusion matrix
+    accuracy = (true_positive + true_negative) / cm.sum() * 100  # Overall accuracy calculation
+    
+    # Store classification metrics
+    classification_results.append([label, f"{accuracy:.1f}%", f"{f1_score:.1f}%", f"{recall:.1f}%", f"{precision:.1f}%"])
+
+    # Store TP, TN, FP, FN metrics for separate sheet
+    metrics_results.append([label, true_positive, true_negative, false_positive, false_negative])
+
+# Create DataFrame for classification results
+classification_df = pd.DataFrame(classification_results, columns=['Malware Type', 'Accuracy', 'F1 Score', 'Recall', 'Precision'])
+
+# Create DataFrame for TP, TN, FP, FN results
+metrics_df = pd.DataFrame(metrics_results, columns=['Malware Type', 'True Positive', 'True Negative', 'False Positive', 'False Negative'])
+
+# Save classification results to a CSV file
+classification_output_path = os.path.join(output_folder, 'classification_results.csv')
+classification_df.to_csv(classification_output_path, index=False)
+
+# Save metrics results (TP, TN, FP, FN) to a separate CSV file
+metrics_output_path = os.path.join(output_folder, 'metrics_results.csv')
+metrics_df.to_csv(metrics_output_path, index=False)
+
+# Plotting the confusion matrix with predicted on the left and actual on the right
+plt.figure(figsize=(12, 8))  # Increased figure size to avoid clipping of labels
+sns.heatmap(cm, annot=True, fmt="d", cmap='Blues', xticklabels=labels, yticklabels=labels)
+
+# Tilting the labels to make them oblique and adjusting padding
+plt.xticks(rotation=45, ha='right', rotation_mode='anchor')  # Rotate x-axis labels
+plt.yticks(rotation=45, va='top')  # Rotate y-axis labels
+
+# Title and axis labels
+plt.title('Confusion Matrix')
+plt.xlabel('Actual Class')
+plt.ylabel('Predicted Class')
+
+# Use tight_layout to ensure labels fit within the plot area
+plt.tight_layout()
+
+# Save the confusion matrix plot inside the folder
+cm_output_path = os.path.join(output_folder, 'confusion_matrix.png')
+plt.savefig(cm_output_path)
+plt.close()
+
+# Print classification report
+print(classification_report(actual, predicted))
+
+# Save the classification report to a text file inside the folder
+report_output_path = os.path.join(output_folder, 'classification_report.txt')
+with open(report_output_path, 'w') as f:
+    f.write(classification_report(actual, predicted))
+
+# Generate Image for Classification Results (Table)
+fig, ax = plt.subplots(figsize=(15, 10))  # Create a larger figure
+ax.axis('tight')
+ax.axis('off')
+
+# Create table for classification results with increased margins and larger font
+table = ax.table(cellText=classification_df.values, colLabels=classification_df.columns, loc='center', cellLoc='center', colColours=['#f5f5f5']*5)
+
+# Adjust table size and margins
+table.auto_set_font_size(False)
+table.set_fontsize(12)
+table.scale(1.5, 1.5)
+
+# Save the Classification Results Table as an image with larger margins
+classification_table_image_path = os.path.join(output_folder, 'classification_results_table.png')
+plt.savefig(classification_table_image_path, bbox_inches='tight', pad_inches=0.05)
+plt.close()
+
+# Generate Image for Metrics Results (Table)
+fig, ax = plt.subplots(figsize=(15, 10))  # Create a larger figure
+ax.axis('tight')
+ax.axis('off')
+
+# Create table for metrics results (TP, TN, FP, FN) with increased margins and larger font
+table = ax.table(cellText=metrics_df.values, colLabels=metrics_df.columns, loc='center', cellLoc='center', colColours=['#f5f5f5']*5)
+
+# Adjust table size and margins
+table.auto_set_font_size(False)
+table.set_fontsize(12)
+table.scale(1.5, 1.5)
+
+# Save the Metrics Results Table as an image with larger margins
+metrics_table_image_path = os.path.join(output_folder, 'metrics_results_table.png')
+plt.savefig(metrics_table_image_path, bbox_inches='tight', pad_inches=0.05)
+plt.close()
