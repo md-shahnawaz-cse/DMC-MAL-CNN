@@ -13,12 +13,13 @@ import datetime
 # Constants
 IMAGE_SIZE = (128, 128)
 BATCH_SIZE = 32
-EPOCHS = 30
+EPOCHS = 100
 NUM_CLASSES = 8  # adware, backdoor, benign, downloader, spyware, trojan, virus, worms
 
+# this was for the blueish 
 # Paths
-data_dir = 'H:/2025_Malware/training_data'
-results_dir = 'H:/2025_Malware/results'
+data_dir = r'H:\2025_Malware\all_10_csv_output\output_images'
+results_dir = r'H:\2025_Malware\all_10_csv_output\output_images/results'
 os.makedirs(results_dir, exist_ok=True)
 
 # Class names
