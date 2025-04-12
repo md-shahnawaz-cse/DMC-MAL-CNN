@@ -1,3 +1,5 @@
+# from image to model training and testing(given folder path will contain all images generated)
+
 import os
 import numpy as np
 import pandas as pd
