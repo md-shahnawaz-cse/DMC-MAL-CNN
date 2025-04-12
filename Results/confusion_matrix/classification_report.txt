@@ -1,0 +1,13 @@
+              precision    recall  f1-score   support
+
+      adware       0.99      0.87      0.93       397
+    backdoor       0.90      0.84      0.87       135
+      benign       0.94      0.99      0.97      1727
+  downloader       1.00      1.00      1.00       500
+     spyware       0.98      0.84      0.90       189
+      trojan       0.96      0.90      0.92       714
+       virus       0.94      1.00      0.97       478
+
+    accuracy                           0.95      4140
+   macro avg       0.96      0.92      0.94      4140
+weighted avg       0.96      0.95      0.95      4140
