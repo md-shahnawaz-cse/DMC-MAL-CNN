@@ -16,7 +16,7 @@ BATCH_SIZE = 32
 EPOCHS = 100
 NUM_CLASSES = 8  # adware, backdoor, benign, downloader, spyware, trojan, virus, worms
 
-# this was for the blueish 
+# this was for the blueish pink images
 # Paths
 data_dir = r'H:\2025_Malware\all_10_csv_output\output_images'
 results_dir = r'H:\2025_Malware\all_10_csv_output\output_images/results'
