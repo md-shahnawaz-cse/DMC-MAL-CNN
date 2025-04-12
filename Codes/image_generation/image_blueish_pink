@@ -1,3 +1,5 @@
+# generating of image from a csv file which contain 22k row and 88k column 
+
 import csv
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter
