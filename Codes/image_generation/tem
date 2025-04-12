@@ -1,1 +1,74 @@
-fdfg
+import csv
+import numpy as np
+from PIL import Image, ImageEnhance, ImageFilter
+import os
+from skimage.filters import sobel, gaussian
+from skimage.exposure import equalize_adapthist
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+
+def generate_image_from_row(row_dict, output_folder_path):
+    # Get the image name from 'family' and 'hash' keys
+    family = row_dict.get('family', 'unknown')
+    file_hash = row_dict.get('hash', 'nohash')
+    image_name = f"{family}_{file_hash}.png"
+
+    # Extract numeric features only (excluding non-numeric fields)
+    features = [float(value) for key, value in row_dict.items()
+                if key not in ['hash', 'family'] and str(value).replace('.', '', 1).isdigit()]
+
+    if len(features) == 0:
+        print(f"⚠️ No valid numeric features for {image_name}")
+        return
+
+    # Normalization using mean ± 2.5*std
+    mean_val = np.mean(features)
+    std_val = np.std(features)
+    dynamic_min = max(0, mean_val - 2.5 * std_val)
+    dynamic_max = mean_val + 2.5 * std_val
+    normalized = np.clip(features, dynamic_min, dynamic_max)
+    normalized = (normalized - dynamic_min) / (dynamic_max - dynamic_min) * 255
+
+    # Square root scaling
+    sqrt_scaled = np.sqrt(normalized) * (255 / np.sqrt(255))
+
+    # Pad to nearest square
+    total = len(sqrt_scaled)
+    side = int(np.ceil(np.sqrt(total)))
+    padded = list(sqrt_scaled) + [mean_val / (dynamic_max - dynamic_min) * 255] * (side * side - total)
+    reshaped = np.array(padded).reshape((side, side))
+
+    # Image processing
+    blurred = gaussian(reshaped / 255.0, sigma=1.0) * 255
+    clahe = equalize_adapthist(blurred / 255.0, clip_limit=0.03, kernel_size=8) * 255
+    edges = sobel(clahe / 255.0)
+    edge_enhanced = clahe * (1 + 0.7 * edges)
+    edge_enhanced = np.clip(edge_enhanced, 0, 255).astype(np.uint8)
+
+    # Apply magma colormap
+    norm = mcolors.Normalize(vmin=edge_enhanced.min(), vmax=edge_enhanced.max())
+    colored = cm.magma(norm(edge_enhanced))[:, :, :3]
+    colored = (colored * 255).astype(np.uint8)
+    image = Image.fromarray(colored)
+
+    # Enhance and sharpen
+    image = ImageEnhance.Contrast(image).enhance(1.8)
+    image = image.filter(ImageFilter.UnsharpMask(radius=2, percent=150, threshold=3))
+
+    # Save the image
+    if not os.path.exists(output_folder_path):
+        os.makedirs(output_folder_path)
+
+    output_path = os.path.join(output_folder_path, image_name)
+    image.save(output_path)
+    print(f"✅ Image saved: {output_path} | Size: {side}x{side}")
+
+# -------- Main Execution --------
+
+input_csv = r'H:\2025_Malware\all_10_csv_output\all_csv_files.csv'
+output_folder = r'H:\2025_Malware\all_10_csv_output\output_images'
+
+with open(input_csv, 'r', encoding='utf-8') as csvfile:
+    reader = csv.DictReader(csvfile)
+    for row in reader:
+        generate_image_from_row(row, output_folder)
