@@ -1,0 +1,79 @@
+import csv
+import numpy as np
+from PIL import Image, ImageEnhance, ImageFilter
+import os
+from skimage.filters import sobel, gaussian
+from skimage.exposure import equalize_adapthist
+
+# Function to generate and save the image from row data
+def generate_image_from_row(row_dict, output_folder_path):
+    # Get the image name from 'family' and 'hash' keys
+    family = row_dict.get('family', 'unknown')
+    file_hash = row_dict.get('hash', 'nohash')
+    image_name = f"{family}_{file_hash}.png"
+
+    # Extract only numeric features
+    features = [float(value) for key, value in row_dict.items()
+                if key not in ['hash', 'family'] and str(value).replace('.', '', 1).isdigit()]
+
+    if len(features) == 0:
+        print(f"⚠️ No valid numeric features for {image_name}")
+        return
+
+    # Dynamic normalization using mean ± 2*std
+    mean_val = np.mean(features)
+    std_val = np.std(features)
+    dynamic_min = max(0, mean_val - 2 * std_val)
+    dynamic_max = mean_val + 2 * std_val
+    normalized = np.clip(features, dynamic_min, dynamic_max)
+    normalized = (normalized - dynamic_min) / (dynamic_max - dynamic_min) * 255
+
+    # Apply sigmoid scaling
+    sigmoid_scaled = 255 / (1 + np.exp(-0.04 * (normalized - 127.5)))
+
+    # Pad to nearest square
+    total = len(sigmoid_scaled)
+    side = int(np.ceil(np.sqrt(total)))
+    padded = list(sigmoid_scaled) + [mean_val / (dynamic_max - dynamic_min) * 255] * (side * side - total)
+    reshaped = np.array(padded).reshape((side, side))
+
+    # Gaussian blur
+    blurred = gaussian(reshaped / 255.0, sigma=0.7) * 255
+
+    # CLAHE
+    clahe = equalize_adapthist(blurred / 255.0, clip_limit=0.03, kernel_size=10) * 255
+
+    # Add random noise
+    noise = np.random.normal(0, 15, clahe.shape)
+    noisy = clahe + noise
+    noisy = np.clip(noisy, 0, 255).astype(np.uint8)
+
+    # Sobel edge detection
+    edges = sobel(noisy / 255.0)
+    edge_enhanced = noisy * (1 + 0.5 * edges)
+    edge_enhanced = np.clip(edge_enhanced, 0, 255).astype(np.uint8)
+
+    # Convert to image
+    image = Image.fromarray(edge_enhanced, mode='L')
+
+    # Contrast and sharpening
+    image = ImageEnhance.Contrast(image).enhance(2.2)
+    image = image.filter(ImageFilter.UnsharpMask(radius=1.8, percent=220, threshold=2))
+
+    # Save the image
+    if not os.path.exists(output_folder_path):
+        os.makedirs(output_folder_path)
+
+    output_path = os.path.join(output_folder_path, image_name)
+    image.save(output_path)
+    print(f"✅ Saved: {output_path} | Size: {side}x{side}")
+
+# ---------- Main Code ----------
+
+input_csv = r'H:\2025_Malware\all_10_csv_output\all_csv_files.csv'
+output_folder = r'H:\2025_Malware\all_10_csv_output\output_images_grey7'
+
+with open(input_csv, 'r', encoding='utf-8') as file:
+    reader = csv.DictReader(file)
+    for row in reader:
+        generate_image_from_row(row, output_folder)
