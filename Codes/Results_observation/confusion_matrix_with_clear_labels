@@ -1,0 +1,113 @@
+import pandas as pd
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
+import matplotlib.pyplot as plt
+import os
+
+# Load the CSV file
+input_path = r'H:\2025_Malware\all_10_csv_output\output_images\results1\model_20250413_202701\predictions.csv'
+df = pd.read_csv(input_path)
+
+# Extract actual and predicted classes
+actual = df['actual_class']
+predicted = df['predicted_class']
+
+# Generate confusion matrix
+cm = confusion_matrix(actual, predicted)
+
+# Classification report for performance metrics
+report = classification_report(actual, predicted, output_dict=True)
+
+# Define class labels
+labels = sorted(df['actual_class'].unique())
+
+# Create output directory
+output_folder = os.path.join(os.path.dirname(input_path), 'confusion_matrix2')
+os.makedirs(output_folder, exist_ok=True)
+
+# Prepare classification metrics
+classification_results = []
+metrics_results = []
+
+for label in labels:
+    precision = report[label]['precision'] * 100
+    recall = report[label]['recall'] * 100
+    f1_score = report[label]['f1-score'] * 100
+
+    idx = labels.index(label)
+    tp = cm[idx, idx]
+    fp = cm[:, idx].sum() - tp
+    fn = cm[idx, :].sum() - tp
+    tn = cm.sum() - (tp + fp + fn)
+
+    accuracy = (tp + tn) / cm.sum() * 100
+
+    classification_results.append([label, f"{accuracy:.1f}%", f"{f1_score:.1f}%", f"{recall:.1f}%", f"{precision:.1f}%"])
+    metrics_results.append([label, tp, tn, fp, fn])
+
+# Save classification results
+classification_df = pd.DataFrame(classification_results, columns=['Malware Type', 'Accuracy', 'F1 Score', 'Recall', 'Precision'])
+metrics_df = pd.DataFrame(metrics_results, columns=['Malware Type', 'True Positive', 'True Negative', 'False Positive', 'False Negative'])
+
+classification_df.to_csv(os.path.join(output_folder, 'classification_results.csv'), index=False)
+metrics_df.to_csv(os.path.join(output_folder, 'metrics_results.csv'), index=False)
+
+# Plot square confusion matrix with tighter layout and centered digits
+plt.figure(figsize=(12, 12), dpi=100)  # higher DPI for clarity
+sns.heatmap(
+    cm,
+    annot=True,
+    fmt="d",
+    cmap='Blues',
+    xticklabels=labels,
+    yticklabels=labels,
+    square=True,
+    linewidths=0.5,
+    linecolor='white',
+    cbar_kws={"shrink": 0.85},
+    annot_kws={"size": 16, "va": "center", "ha": "center"}  # tighter font layout
+)
+
+# Axis tick labels
+plt.xticks(rotation=90, ha='center', fontsize=16)
+plt.yticks(rotation=0, va='center', fontsize=16)
+
+# Title and axis labels
+plt.title('Confusion Matrix', fontsize=24)
+plt.xlabel('Predicted Class', fontsize=20)
+plt.ylabel('Actual Class', fontsize=20)
+
+# Reduce spacing around plot
+plt.tight_layout(pad=0.5)
+
+# Save the confusion matrix image
+cm_output_path = os.path.join(output_folder, 'confusion_matrix.png')
+plt.savefig(cm_output_path)
+plt.close()
+
+# Print and save classification report
+print(classification_report(actual, predicted))
+with open(os.path.join(output_folder, 'classification_report.txt'), 'w') as f:
+    f.write(classification_report(actual, predicted))
+
+# Save classification results table as image
+fig, ax = plt.subplots(figsize=(15, 10))
+ax.axis('tight')
+ax.axis('off')
+table = ax.table(cellText=classification_df.values, colLabels=classification_df.columns, loc='center', cellLoc='center', colColours=['#f5f5f5']*5)
+table.auto_set_font_size(False)
+table.set_fontsize(14)
+table.scale(1.5, 1.5)
+plt.savefig(os.path.join(output_folder, 'classification_results_table.png'), bbox_inches='tight', pad_inches=0.05)
+plt.close()
+
+# Save metrics table as image
+fig, ax = plt.subplots(figsize=(15, 10))
+ax.axis('tight')
+ax.axis('off')
+table = ax.table(cellText=metrics_df.values, colLabels=metrics_df.columns, loc='center', cellLoc='center', colColours=['#f5f5f5']*5)
+table.auto_set_font_size(False)
+table.set_fontsize(14)
+table.scale(1.5, 1.5)
+plt.savefig(os.path.join(output_folder, 'metrics_results_table.png'), bbox_inches='tight', pad_inches=0.05)
+plt.close()
