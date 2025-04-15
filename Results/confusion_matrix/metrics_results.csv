@@ -1,8 +1,9 @@
 Malware Type,True Positive,True Negative,False Positive,False Negative
-adware,347,3739,4,50
-backdoor,114,3993,12,21
-benign,1715,2304,109,12
-downloader,500,3640,0,0
-spyware,158,3948,3,31
-trojan,640,3396,30,74
-virus,476,3630,32,2
+adware,312,4011,4,85
+backdoor,114,4263,14,21
+benign,1704,2532,153,23
+downloader,500,3912,0,0
+spyware,160,4216,7,29
+trojan,641,3664,34,73
+virus,446,3915,18,33
+worm,247,4083,58,24
