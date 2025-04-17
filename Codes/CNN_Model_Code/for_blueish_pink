@@ -25,7 +25,7 @@ results_dir = r'H:\2025_Malware\all_10_csv_output\output_images/results'
 os.makedirs(results_dir, exist_ok=True)
 
 # Class names
-class_names = ['adware', 'backdoor', 'benign', 'downloader', 'spyware', 'trojan', 'virus', 'worms']
+class_names = ['adware', 'backdoor', 'benign', 'downloader', 'spyware', 'trojan', 'virus', 'worm']
 
 # Modified dataset loading to track filenames
 def load_dataset_with_filenames(folder_path):
